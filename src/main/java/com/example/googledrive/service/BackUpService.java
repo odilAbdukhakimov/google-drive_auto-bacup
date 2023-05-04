@@ -1,6 +1,7 @@
 package com.example.googledrive.service;
 
-import com.example.googledrive.repository.DataBaseRepository;
+import com.example.googledrive.dto.DataBaseDto;
+import com.example.googledrive.connection.H2DataBaseConnection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -13,12 +14,11 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class BackUpService {
     private final DriveQuickstart quickstart;
-    private final DataBaseRepository dataBaseRepository;
+    private final H2DataBaseConnection connection;
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "#{h2DataBaseConnection.cronTime}")
     public void backUp() {
-        dataBaseRepository.findAll().forEach((t) ->
-                createBackUp(t.getDatabaseName()));
+        connection.getAllSelectedDataBase().forEach(this::createBackUp);
     }
 
     private String read(InputStream inputStream) throws IOException {
@@ -31,7 +31,7 @@ public class BackUpService {
         return stringBuilder.toString();
     }
 
-    private void createBackUp(String dataBaseName) {
+    private void createBackUp(DataBaseDto dataBaseDto) {
         try {
             String backupDirectoryPath = "./backup";
             String dateTimeFormat = "yyyy-MM-dd_HH-mm_";
@@ -45,14 +45,15 @@ public class BackUpService {
             }
             File backupFile;
             do {
-                fileName = String.format("%s_%s%d.sql", dataBaseName, now.format(DateTimeFormatter.ofPattern(dateTimeFormat)), sequencer);
+                fileName = String.format("%s_%s%d.sql", dataBaseDto.getDataBaseName(), now.format(DateTimeFormatter.ofPattern(dateTimeFormat)), sequencer);
                 backupFile = new File(backupDirectory, fileName);
                 sequencer++;
             } while (backupFile.exists());
 
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "pg_dump",
-                    "--dbname=postgresql://postgres:0887@localhost:5432/" + dataBaseName,
+                    String.format("--dbname=postgresql://%s:%s@localhost:5432/%s", dataBaseDto.getUsername(),
+                            dataBaseDto.getPassword(), dataBaseDto.getDataBaseName()),
                     "--file=" + backupFile
             );
             Process process = processBuilder.start();
@@ -67,5 +68,4 @@ public class BackUpService {
             throw new RuntimeException(e);
         }
     }
-
 }

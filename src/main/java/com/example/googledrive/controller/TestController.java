@@ -1,11 +1,10 @@
 package com.example.googledrive.controller;
 
-import com.example.googledrive.entity.DbEntity;
+import com.example.googledrive.dto.CronTimeDto;
+import com.example.googledrive.dto.DataBaseDto;
+import com.example.googledrive.connection.H2DataBaseConnection;
 import com.example.googledrive.service.DataBaseService;
 import com.example.googledrive.service.DriveQuickstart;
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
-import java.util.Map;
 
 
 @RestController
@@ -23,6 +21,7 @@ import java.util.Map;
 public class TestController {
     private final DataBaseService dataBaseService;
     private final DriveQuickstart driveQuickstart;
+    private final H2DataBaseConnection connection;
 
     @GetMapping("all-dbList")
     public List<String> getDbList() {
@@ -30,20 +29,24 @@ public class TestController {
     }
 
     @GetMapping("select-dbList")
-    public List<DbEntity> getDbListSelected() {
-        return dataBaseService.getSelectedDataBase();
+    public List<String> getDbListSelected() {
+        return connection.getDatabaseNameList();
     }
 
     @SneakyThrows
     @PostMapping("add-database")
-    public void addDataBase(@RequestBody Map<String, List<String>> dataBases, HttpServletResponse response) {
-        checkAuth(response);
-        dataBaseService.addDataBase(dataBases);
+    public void addDataBase(@RequestBody DataBaseDto dataBaseDto, HttpServletResponse response) {
+        if (driveQuickstart.refreshTokenIsValid()) {
+            connection.addDataBase(dataBaseDto);
+        } else {
+            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1063621039655-jplll5pmunep9fdra21ukikbq1psk3c9.apps.googleusercontent.com&redirect_uri=http://localhost:9000/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
+        }
     }
 
     @GetMapping("auth")
     public String authenticateUser(HttpServletResponse response) throws Exception {
-        response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1063621039655-jplll5pmunep9fdra21ukikbq1psk3c9.apps.googleusercontent.com&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
+        if (!driveQuickstart.refreshTokenIsValid())
+            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1063621039655-jplll5pmunep9fdra21ukikbq1psk3c9.apps.googleusercontent.com&redirect_uri=http://localhost:9000/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
         return "Already authenticated";
     }
 
@@ -52,16 +55,19 @@ public class TestController {
         return driveQuickstart.callback(code);
     }
 
-    @DeleteMapping("del/{id}")
-    public void deleteDataBase(@PathVariable Integer id) {
-        dataBaseService.deleteDataBase(id);
+    @DeleteMapping("del/{dbName}")
+    public void deleteDataBase(@PathVariable String dbName) {
+        connection.deleteDataBase(dbName);
     }
 
-    private void checkAuth(HttpServletResponse response) throws IOException, GeneralSecurityException {
-        NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        Credential credential = driveQuickstart.getCredentials(HTTP_TRANSPORT);
-        if (credential == null)
-            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1063621039655-jplll5pmunep9fdra21ukikbq1psk3c9.apps.googleusercontent.com&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/drive.file");
-
+    @PutMapping("update/cron-time")
+    public void updateCronTime(@RequestBody CronTimeDto cronTimeDto) {
+        connection.updateCronTime(cronTimeDto);
     }
+
+    @GetMapping("cron")
+    public String getCron() {
+        return connection.getCronTime();
+    }
+
 }
