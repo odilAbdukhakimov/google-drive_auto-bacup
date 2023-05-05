@@ -3,13 +3,12 @@ package com.example.googledrive.controller;
 import com.example.googledrive.dto.CronTimeDto;
 import com.example.googledrive.dto.DataBaseDto;
 import com.example.googledrive.connection.H2DataBaseConnection;
-import com.example.googledrive.service.DataBaseService;
 import com.example.googledrive.service.DriveQuickstart;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
@@ -19,16 +18,10 @@ import java.util.List;
 @RequestMapping("/")
 @RequiredArgsConstructor
 public class TestController {
-    private final DataBaseService dataBaseService;
     private final DriveQuickstart driveQuickstart;
     private final H2DataBaseConnection connection;
 
-    @GetMapping("all-dbList")
-    public List<String> getDbList() {
-        return dataBaseService.getAllDatabaseList();
-    }
-
-    @GetMapping("select-dbList")
+    @GetMapping("db-list")
     public List<String> getDbListSelected() {
         return connection.getDatabaseNameList();
     }
@@ -39,14 +32,14 @@ public class TestController {
         if (driveQuickstart.refreshTokenIsValid()) {
             connection.addDataBase(dataBaseDto);
         } else {
-            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1063621039655-jplll5pmunep9fdra21ukikbq1psk3c9.apps.googleusercontent.com&redirect_uri=http://localhost:9000/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
+            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=495598571641-9uufvvkr8sh1qhkd4ghtu6vfr3mhditl.apps.googleusercontent.com&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
         }
     }
 
     @GetMapping("auth")
     public String authenticateUser(HttpServletResponse response) throws Exception {
         if (!driveQuickstart.refreshTokenIsValid())
-            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1063621039655-jplll5pmunep9fdra21ukikbq1psk3c9.apps.googleusercontent.com&redirect_uri=http://localhost:9000/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
+            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=495598571641-9uufvvkr8sh1qhkd4ghtu6vfr3mhditl.apps.googleusercontent.com&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
         return "Already authenticated";
     }
 

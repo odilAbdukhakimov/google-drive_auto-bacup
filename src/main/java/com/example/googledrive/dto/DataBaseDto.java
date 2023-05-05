@@ -11,4 +11,5 @@ public class DataBaseDto {
     private String dataBaseName;
     private String username;
     private String password;
+    private String folderName;
 }

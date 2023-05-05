@@ -1,12 +1,12 @@
 package com.example.googledrive.service;
 
 import com.example.googledrive.connection.H2DataBaseConnection;
+import com.example.googledrive.dto.DataBaseDto;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.auth.oauth2.TokenResponse;
 import com.google.api.client.auth.oauth2.TokenResponseException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleRefreshTokenRequest;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.FileContent;
@@ -17,6 +17,7 @@ import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.FileList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,8 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -66,10 +69,15 @@ public class DriveQuickstart {
                 .build();
     }
 
-    public void performBackup(java.io.File file, String fileName) throws GeneralSecurityException, IOException {
+    public void performBackup(java.io.File file, String fileName, DataBaseDto dataBaseDto) throws GeneralSecurityException, IOException {
         Drive service = getDriveService();
+        File root = service.files().get("root").execute();
+        String folderId = createFolders(service, dataBaseDto, root.getId());
+
+//create file
         File fileMetadata = new File();
         fileMetadata.setName(fileName);
+        fileMetadata.setParents(Collections.singletonList(folderId));
         FileContent mediaContent = new FileContent("application/octet-stream", file);
         try {
             File fileR = service.files().create(fileMetadata, mediaContent)
@@ -142,16 +150,59 @@ public class DriveQuickstart {
         System.out.println("Refresh token is invalid.");
         return false;
     }
-//    public String getNewRefreshToken() throws IOException {
-//        String refreshToken = connection.getRefreshToken();
-//        ArrayList<String> scopes = new ArrayList<>();
-//
-////        scopes.add(CalendarScopes.CALENDAR);
-//
-//        TokenResponse tokenResponse = new GoogleRefreshTokenRequest(new NetHttpTransport(), new JacksonFactory(),
-//                refreshToken, APPLICATION_CLIENT_ID, APPLICATION_CLIENT_SECRET).setScopes(scopes).setGrantType("refresh_token").execute();
-//        String refreshToken1 = tokenResponse.getRefreshToken();
-//        return refreshToken1;
-//
-//    }
+
+    private String createFolder(Drive service, String folderName, String parentFolderId) throws IOException {
+        String mimeType = "application/vnd.google-apps.folder";
+        File directory = new File();
+        directory.setName(folderName);
+        if (parentFolderId != null) {
+            directory.setParents(Collections.singletonList(parentFolderId));
+        }
+        directory.setMimeType(mimeType);
+        File createdDirectory = service.files().create(directory).setFields("id").execute();
+        return createdDirectory.getId();
+    }
+
+    private static List<File> getSubFolders(Drive service, String parentId) throws IOException {
+        String query = "mimeType='application/vnd.google-apps.folder' and trashed = false and '" + parentId + "' in parents";
+
+        FileList result = service.files().list().setQ(query).setFields("nextPageToken, files(id, name)").execute();
+
+        List<File> subFolders = new ArrayList<>(result.getFiles());
+
+        while (result.getNextPageToken() != null) {
+            result = service.files().list().setQ(query).setFields("nextPageToken, files(id, name)").setPageToken(result.getNextPageToken()).execute();
+            subFolders.addAll(result.getFiles());
+        }
+
+        return subFolders;
+    }
+
+    private String createFolders(Drive service, DataBaseDto dto, String parentFolderId) throws IOException {
+        if (dto.getFolderName() == null) {
+            return createOrGetFolder(service, dto.getDataBaseName(), parentFolderId);
+        }
+        if (dto.getFolderName().contains("/")) {
+            String folderName = dto.getFolderName() + "/" + dto.getDataBaseName();
+            String[] split = folderName.split("/");
+            for (String s : split) {
+                parentFolderId = createOrGetFolder(service, s, parentFolderId);
+            }
+        } else {
+            String folderId = createOrGetFolder(service, dto.getFolderName(), parentFolderId);
+            createOrGetFolder(service, dto.getDataBaseName(), folderId);
+        }
+        return parentFolderId;
+    }
+
+    private String createOrGetFolder(Drive service, String folderName, String parentFolderId) throws IOException {
+        List<File> subFolders = getSubFolders(service, parentFolderId);
+        for (File subFolder : subFolders) {
+            if (subFolder.getName().equals(folderName)) {
+                return subFolder.getId();
+            }
+        }
+        return createFolder(service, folderName, parentFolderId);
+    }
+
 }

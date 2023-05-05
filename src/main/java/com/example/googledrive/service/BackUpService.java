@@ -33,7 +33,7 @@ public class BackUpService {
 
     private void createBackUp(DataBaseDto dataBaseDto) {
         try {
-            String backupDirectoryPath = "./backup";
+            String backupDirectoryPath = "./backup/" + dataBaseDto.getDataBaseName();
             String dateTimeFormat = "yyyy-MM-dd_HH-mm_";
             LocalDateTime now = LocalDateTime.now();
             int sequencer = 0;
@@ -41,7 +41,7 @@ public class BackUpService {
 
             File backupDirectory = new File(backupDirectoryPath);
             if (!backupDirectory.exists()) {
-                backupDirectory.mkdir();
+                backupDirectory.mkdirs();
             }
             File backupFile;
             do {
@@ -62,7 +62,7 @@ public class BackUpService {
 
             if (errorOutput.isEmpty()) {
                 File file = new File(backupDirectoryPath, fileName);
-                quickstart.performBackup(file, fileName);
+                quickstart.performBackup(file, fileName, dataBaseDto);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

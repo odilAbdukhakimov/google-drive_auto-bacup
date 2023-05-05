@@ -1,6 +1,5 @@
 package com.example.googledrive.connection;
 
-import com.example.googledrive.GoogleDriveApplication;
 import com.example.googledrive.dto.CronTimeDto;
 import com.example.googledrive.dto.DataBaseDto;
 import lombok.SneakyThrows;
@@ -23,7 +22,7 @@ public class H2DataBaseConnection {
     public void createTableIfExist() throws SQLException {
         Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
 
-        String sql = "CREATE TABLE IF NOT EXISTS database (name VARCHAR(255) UNIQUE, username VARCHAR(255), password VARCHAR(255));" +
+        String sql = "CREATE TABLE IF NOT EXISTS database (name VARCHAR(255) UNIQUE, username VARCHAR(255), password VARCHAR(255), folder_name VARCHAR(255));" +
                 "CREATE TABLE IF NOT EXISTS refresh_token (id INT PRIMARY KEY, refresh_token VARCHAR(255), create_time TIMESTAMP);" +
                 "CREATE TABLE IF NOT EXISTS cron_time (id INT PRIMARY KEY, cron VARCHAR(255));";
 
@@ -70,7 +69,8 @@ public class H2DataBaseConnection {
                 String dbName = resultSet.getString("name");
                 String username = resultSet.getString("username");
                 String password = resultSet.getString("password");
-                DataBaseDto dataBaseDto = new DataBaseDto(dbName, username, password);
+                String folderName = resultSet.getString("folder_name");
+                DataBaseDto dataBaseDto = new DataBaseDto(dbName, username, password, folderName);
                 result.add(dataBaseDto);
             }
 
@@ -88,8 +88,10 @@ public class H2DataBaseConnection {
         List<String> list2 = getDatabaseNameList();
         if (!list2.contains(dataBaseDto.getDataBaseName())) {
             insertDataBase(dataBaseDto);
+        } else {
+            System.out.println("DataBase already exist");
+            updateDataBase(dataBaseDto);
         }
-        System.out.println("DataBase already exist");
     }
 
     public void deleteDataBase(String dbName) {
@@ -107,18 +109,37 @@ public class H2DataBaseConnection {
 
     private void insertDataBase(DataBaseDto dataBase) throws SQLException {
         Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
-        String sql = "INSERT INTO database (name, username, password) VALUES (?,?,?)";
+        String sql = "INSERT INTO database (name, username, password, folder_name) VALUES (?,?,?,?)";
 
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
         preparedStatement.setString(1, dataBase.getDataBaseName());
         preparedStatement.setString(2, dataBase.getUsername());
         preparedStatement.setString(3, dataBase.getPassword());
+        preparedStatement.setString(4, dataBase.getFolderName());
 
         int rowsInserted = preparedStatement.executeUpdate();
         System.out.println(rowsInserted + " row(s) inserted.");
 
         preparedStatement.close();
         connection.close();
+    }
+
+    private void updateDataBase(DataBaseDto newDataBase) throws SQLException {
+        Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+        String sql = "UPDATE database SET username=?, password=?, folder_name=? WHERE name=?";
+
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        preparedStatement.setString(1, newDataBase.getUsername());
+        preparedStatement.setString(2, newDataBase.getPassword());
+        preparedStatement.setString(3, newDataBase.getFolderName());
+        preparedStatement.setString(4, newDataBase.getDataBaseName());
+
+        int rowsUpdated = preparedStatement.executeUpdate();
+        System.out.println(rowsUpdated + " row(s) updated.");
+
+        preparedStatement.close();
+        connection.close();
+
     }
 
     public void addRefreshToken(String refreshToken) {
@@ -165,7 +186,6 @@ public class H2DataBaseConnection {
             pstmt.setString(2, String.format(("0 %s %s * * *"), timeDto.getMin(), timeDto.getHour()));
             pstmt.executeUpdate();
             System.out.println("cron time inserted or updated successfully");
-            GoogleDriveApplication.restart();
         } catch (
                 SQLException e) {
             System.out.println(e.getMessage());
@@ -186,7 +206,7 @@ public class H2DataBaseConnection {
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
-        return cronTime == null ? "0 * * * * *" : cronTime;
+        return cronTime == null ? "0 0 1 * * *" : cronTime;
     }
 
     private CronTimeDto checkTime(CronTimeDto cronTimeDto) {
