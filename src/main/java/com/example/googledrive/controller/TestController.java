@@ -32,14 +32,14 @@ public class TestController {
         if (driveQuickstart.refreshTokenIsValid()) {
             connection.addDataBase(dataBaseDto);
         } else {
-            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=495598571641-9uufvvkr8sh1qhkd4ghtu6vfr3mhditl.apps.googleusercontent.com&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
+            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=#{#clientId}&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=#{#scopes}");
         }
     }
 
     @GetMapping("auth")
     public String authenticateUser(HttpServletResponse response) throws Exception {
         if (!driveQuickstart.refreshTokenIsValid())
-            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=495598571641-9uufvvkr8sh1qhkd4ghtu6vfr3mhditl.apps.googleusercontent.com&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive%20https://www.googleapis.com/auth/drive.file&approval_prompt=force");
+            response.sendRedirect("https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=#{#clientId}&redirect_uri=http://localhost:8080/Callback&response_type=code&scope=#{#scopes}");
         return "Already authenticated";
     }
 
